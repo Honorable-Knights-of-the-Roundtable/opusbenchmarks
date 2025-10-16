@@ -119,3 +119,59 @@ func BenchmarkEncodeSilence(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeRandom(b *testing.B) {
+	trackDuration := 10 * time.Second
+
+	encdecTypes := []encdec.EncDecType{encdec.EncDecTypeHraban, encdec.EncDecTypeJJ11h}
+	for _, sampleRate := range sampleRates {
+		for _, numChannels := range channels {
+			for _, frameDuration := range frameDurations {
+
+				// Make a random track
+				audio := make([]encdec.PCMFrame, trackDuration/frameDuration)
+				for i := range audio {
+					audio[i] = make(encdec.PCMFrame, (sampleRate / int(trackDuration/time.Second) * numChannels))
+					for sampleIndex := range audio[i] {
+						audio[i][sampleIndex] = rand.Float32()*2 - 1
+					}
+				}
+
+				// Encode the track with benchmarks
+				b.Run(fmt.Sprintf("Encode Random Audio: Sample Rate %d, Channels %d, Frame Duration %v", sampleRate, numChannels, frameDuration), func(b *testing.B) {
+					b.Attr("AudioType", "Random")
+					b.Attr("TaskType", "Encoding")
+					b.Attr("sampleRate", fmt.Sprint(sampleRate))
+					b.Attr("numChannels", fmt.Sprint(numChannels))
+					b.Attr("frameDuration", fmt.Sprint(frameDuration))
+					encodeAudio(b, audio, sampleRate, numChannels)
+				})
+
+				// Encode the random track
+				encodedAudio := make([]encdec.EncodedFrame, len(audio))
+				ed, err := encdec.NewOpusEncoderDecoder(encdecTypes[0], sampleRate, numChannels)
+				if err != nil {
+					slog.Error("error while creating OPUS encoder/decoder")
+					return
+				}
+				for frameIndex, frame := range audio {
+					encodedFrame, err := ed.Encode(frame)
+					if err != nil {
+						b.Log("error while encoding frame", "frameIndex", frameIndex, "frameLength", len(frame))
+						continue
+					}
+					encodedAudio[frameIndex] = encodedFrame
+				}
+
+				// Decode the track with benchmarks
+				b.Run(fmt.Sprintf("Decode Random Audio: Sample Rate %d, Channels %d, Frame Duration %v", sampleRate, numChannels, frameDuration), func(b *testing.B) {
+					b.Attr("AudioType", "Random")
+					b.Attr("TaskType", "Decoding")
+					b.Attr("sampleRate", fmt.Sprint(sampleRate))
+					b.Attr("numChannels", fmt.Sprint(numChannels))
+					b.Attr("frameDuration", fmt.Sprint(frameDuration))
+					decodeAudio(b, encodedAudio, sampleRate, numChannels)
+				})
+			}
+		}
+	}
+}
