@@ -4,9 +4,9 @@ Benchmarking some OPUS libraries in Golang.
 
 ### Running this project
 
-Run the benchmarks using `go test -bench=.`. Be warned the benchmarks encompass a wide number of sample rates, channel counts, and frame durations, meaning they will take a long time to complete!
+Run the benchmarks using `go test -bench=. -count=10`. Be warned the benchmarks encompass a wide number of sample rates, channel counts, and frame durations, meaning they will take a long time to complete! Even worse, we need multiple trials (`-count=10`) to get a statistically significant comparison between implementations!
 
-Change the constant `ENCDEC_TYPE` at the top of `benchmark_test.go` to alter what encoderdecoder is used during benchmarking. Output the result of each encoderdecoder to a file with `go test -bench=. > file.txt`. Then, compare the trials of different encoderdecoders using [benchstat](https://pkg.go.dev/golang.org/x/perf/cmd/benchstat): `benchstat file1.txt file2.txt`
+Change the constant `ENCDEC_TYPE` at the top of `benchmark_test.go` to alter what encoderdecoder is used during benchmarking. Output the result of each encoderdecoder to a file with `go test -bench=. -count=10 > file.txt`. Then, compare the trials of different encoderdecoders using [benchstat](https://pkg.go.dev/golang.org/x/perf/cmd/benchstat): `benchstat file1.txt file2.txt`
 
 # Implementations
 
