@@ -5,5 +5,5 @@ type EncDecType int
 
 const (
 	EncDecTypeHraban EncDecType = iota
-	EncDecTypeJJ11h  EncDecType = iota
+	EncDecTypeJJ11hh EncDecType = iota
 )

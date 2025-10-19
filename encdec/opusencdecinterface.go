@@ -18,7 +18,7 @@ func NewOpusEncoderDecoder(
 	switch encdecType {
 	case EncDecTypeHraban:
 		return newHrabanEncoderDecoder(sampleRate, numChannels, frameDuration, bufferSafetyFactor)
-	case EncDecTypeJJ11h:
+	case EncDecTypeJJ11hh:
 		return newJJ11hhEncoderDecoder(sampleRate, numChannels, frameDuration, bufferSafetyFactor)
 	default:
 		return nil, fmt.Errorf("no encoder decoder associated with type %s", encdecType)
