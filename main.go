@@ -43,7 +43,7 @@ func main() {
 	// }
 	// select {}
 
-	ed, _ := encdec.NewOpusEncoderDecoder(encdec.EncDecTypeJJ11h, sampleRate, numChannels, frameDuration, bufferSafetyFactor)
+	ed, _ := encdec.NewOpusEncoderDecoder(encdec.EncDecTypeJJ11hh, sampleRate, numChannels, frameDuration, bufferSafetyFactor)
 	encodedAudio := make([]encdec.EncodedFrame, len(audio))
 	slog.Debug("encoding audio")
 	for frameIndex, frame := range audio {
