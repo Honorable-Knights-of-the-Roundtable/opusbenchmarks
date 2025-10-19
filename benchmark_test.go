@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ENCDEC_TYPE          encdec.EncDecType = encdec.EncDecTypeHraban
+	ENCDEC_TYPE          encdec.EncDecType = encdec.EncDecTypeJJ11hh
 	BUFFER_SAFETY_FACTOR int               = 16
 )
 
@@ -63,7 +63,7 @@ func decodeAudio(b *testing.B, audio []encdec.EncodedFrame, sampleRate int, numC
 	}
 }
 
-func BenchmarkEncodeSilence(b *testing.B) {
+func BenchmarkSilentTrack(b *testing.B) {
 	trackDuration := 10 * time.Second
 
 	for _, sampleRate := range sampleRates {
@@ -73,7 +73,7 @@ func BenchmarkEncodeSilence(b *testing.B) {
 				// Make a silent track
 				audio := make([]encdec.PCMFrame, trackDuration/time.Duration(frameDuration))
 				for i := range audio {
-					audio[i] = make(encdec.PCMFrame, (sampleRate / int(trackDuration/time.Second) * numChannels))
+					audio[i] = make(encdec.PCMFrame, (sampleRate * numChannels * int(frameDuration) / int(time.Second)))
 				}
 
 				// Encode the track with benchmarks
@@ -117,7 +117,7 @@ func BenchmarkEncodeSilence(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeRandom(b *testing.B) {
+func BenchmarkRandomTrack(b *testing.B) {
 	trackDuration := 10 * time.Second
 
 	for _, sampleRate := range sampleRates {
@@ -127,7 +127,7 @@ func BenchmarkEncodeRandom(b *testing.B) {
 				// Make a random track
 				audio := make([]encdec.PCMFrame, trackDuration/time.Duration(frameDuration))
 				for i := range audio {
-					audio[i] = make(encdec.PCMFrame, (sampleRate / int(trackDuration/time.Second) * numChannels))
+					audio[i] = make(encdec.PCMFrame, (sampleRate * numChannels * int(frameDuration) / int(time.Second)))
 					for sampleIndex := range audio[i] {
 						audio[i][sampleIndex] = rand.Float32()*2 - 1
 					}
