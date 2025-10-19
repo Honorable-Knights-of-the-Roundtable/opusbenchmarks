@@ -3,14 +3,14 @@ package main
 import (
 	"fmt"
 	"hmcalister/opusbenchmark/encdec"
-	"log/slog"
 	"math/rand"
 	"testing"
 	"time"
 )
 
 const (
-	ENCDEC_TYPE encdec.EncDecType = encdec.EncDecTypeHraban
+	ENCDEC_TYPE          encdec.EncDecType = encdec.EncDecTypeJJ11hh
+	BUFFER_SAFETY_FACTOR int               = 16
 )
 
 var (
@@ -21,18 +21,16 @@ var (
 		24000,
 		48000,
 	}
-	channels       []int           = []int{1, 2}
-	frameDurations []time.Duration = []time.Duration{
-		time.Microsecond * 2500,
-		time.Millisecond * 5,
-		time.Millisecond * 10,
-		time.Millisecond * 20,
-		time.Millisecond * 40,
+	channels       []int                      = []int{1, 2}
+	frameDurations []encdec.OPUSFrameDuration = []encdec.OPUSFrameDuration{
+		encdec.OPUS_FRAME_DURATION_20_MS,
+		encdec.OPUS_FRAME_DURATION_40_MS,
+		encdec.OPUS_FRAME_DURATION_60_MS,
 	}
 )
 
-func encodeAudio(b *testing.B, audio []encdec.PCMFrame, sampleRate int, numChannels int) {
-	encdec, err := encdec.NewOpusEncoderDecoder(ENCDEC_TYPE, sampleRate, numChannels)
+func encodeAudio(b *testing.B, audio []encdec.PCMFrame, sampleRate int, numChannels int, frameDuration encdec.OPUSFrameDuration) {
+	encdec, err := encdec.NewOpusEncoderDecoder(ENCDEC_TYPE, sampleRate, numChannels, frameDuration, BUFFER_SAFETY_FACTOR)
 	if err != nil {
 		b.Errorf("error when creating encoder decoder %s", ENCDEC_TYPE)
 	}
@@ -48,8 +46,8 @@ func encodeAudio(b *testing.B, audio []encdec.PCMFrame, sampleRate int, numChann
 	}
 }
 
-func decodeAudio(b *testing.B, audio []encdec.EncodedFrame, sampleRate int, numChannels int) {
-	encdec, err := encdec.NewOpusEncoderDecoder(ENCDEC_TYPE, sampleRate, numChannels)
+func decodeAudio(b *testing.B, audio []encdec.EncodedFrame, sampleRate int, numChannels int, frameDuration encdec.OPUSFrameDuration) {
+	encdec, err := encdec.NewOpusEncoderDecoder(ENCDEC_TYPE, sampleRate, numChannels, frameDuration, BUFFER_SAFETY_FACTOR)
 	if err != nil {
 		b.Errorf("error when creating encoder decoder %s", ENCDEC_TYPE)
 	}
@@ -65,7 +63,7 @@ func decodeAudio(b *testing.B, audio []encdec.EncodedFrame, sampleRate int, numC
 	}
 }
 
-func BenchmarkEncodeSilence(b *testing.B) {
+func BenchmarkSilentTrack(b *testing.B) {
 	trackDuration := 10 * time.Second
 
 	for _, sampleRate := range sampleRates {
@@ -73,9 +71,9 @@ func BenchmarkEncodeSilence(b *testing.B) {
 			for _, frameDuration := range frameDurations {
 
 				// Make a silent track
-				audio := make([]encdec.PCMFrame, trackDuration/frameDuration)
+				audio := make([]encdec.PCMFrame, trackDuration/time.Duration(frameDuration))
 				for i := range audio {
-					audio[i] = make(encdec.PCMFrame, (sampleRate / int(trackDuration/time.Second) * numChannels))
+					audio[i] = make(encdec.PCMFrame, (sampleRate * numChannels * int(frameDuration) / int(time.Second)))
 				}
 
 				// Encode the track with benchmarks
@@ -85,23 +83,23 @@ func BenchmarkEncodeSilence(b *testing.B) {
 					b.Attr("sampleRate", fmt.Sprint(sampleRate))
 					b.Attr("numChannels", fmt.Sprint(numChannels))
 					b.Attr("frameDuration", fmt.Sprint(frameDuration))
-					encodeAudio(b, audio, sampleRate, numChannels)
+					encodeAudio(b, audio, sampleRate, numChannels, frameDuration)
 				})
 
-				ed, err := encdec.NewOpusEncoderDecoder(ENCDEC_TYPE, sampleRate, numChannels)
-				if err != nil {
-					b.Logf("error while creating OPUS encoder/decoder %v", err)
-					continue
-				}
 				// Encode the silent track
+				ed, _ := encdec.NewOpusEncoderDecoder(ENCDEC_TYPE, sampleRate, numChannels, frameDuration, BUFFER_SAFETY_FACTOR)
 				encodedAudio := make([]encdec.EncodedFrame, len(audio))
-				for frameIndex, frame := range audio {
-					encodedFrame, err := ed.Encode(frame)
+				encodedFrameIndex := 0
+				for rawFrameIndex, frame := range audio {
+					encodedFrames, err := ed.Encode(frame)
 					if err != nil {
-						b.Logf("error while encoding frame, frameIndex %v frameLength %v", frameIndex, len(frame))
+						b.Logf("error while encoding frame, frameIndex %v frameLength %v", rawFrameIndex, len(frame))
 						continue
 					}
-					encodedAudio[frameIndex] = encodedFrame
+					for _, encodedFrame := range encodedFrames {
+						encodedAudio[encodedFrameIndex] = encodedFrame
+						encodedFrameIndex += 1
+					}
 				}
 
 				// Decode the track with benchmarks
@@ -111,7 +109,7 @@ func BenchmarkEncodeSilence(b *testing.B) {
 					b.Attr("sampleRate", fmt.Sprint(sampleRate))
 					b.Attr("numChannels", fmt.Sprint(numChannels))
 					b.Attr("frameDuration", fmt.Sprint(frameDuration))
-					decodeAudio(b, encodedAudio, sampleRate, numChannels)
+					decodeAudio(b, encodedAudio, sampleRate, numChannels, frameDuration)
 				})
 
 			}
@@ -119,18 +117,17 @@ func BenchmarkEncodeSilence(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeRandom(b *testing.B) {
+func BenchmarkRandomTrack(b *testing.B) {
 	trackDuration := 10 * time.Second
 
-	encdecTypes := []encdec.EncDecType{encdec.EncDecTypeHraban, encdec.EncDecTypeJJ11h}
 	for _, sampleRate := range sampleRates {
 		for _, numChannels := range channels {
 			for _, frameDuration := range frameDurations {
 
 				// Make a random track
-				audio := make([]encdec.PCMFrame, trackDuration/frameDuration)
+				audio := make([]encdec.PCMFrame, trackDuration/time.Duration(frameDuration))
 				for i := range audio {
-					audio[i] = make(encdec.PCMFrame, (sampleRate / int(trackDuration/time.Second) * numChannels))
+					audio[i] = make(encdec.PCMFrame, (sampleRate * numChannels * int(frameDuration) / int(time.Second)))
 					for sampleIndex := range audio[i] {
 						audio[i][sampleIndex] = rand.Float32()*2 - 1
 					}
@@ -143,23 +140,23 @@ func BenchmarkEncodeRandom(b *testing.B) {
 					b.Attr("sampleRate", fmt.Sprint(sampleRate))
 					b.Attr("numChannels", fmt.Sprint(numChannels))
 					b.Attr("frameDuration", fmt.Sprint(frameDuration))
-					encodeAudio(b, audio, sampleRate, numChannels)
+					encodeAudio(b, audio, sampleRate, numChannels, frameDuration)
 				})
 
 				// Encode the random track
+				ed, _ := encdec.NewOpusEncoderDecoder(ENCDEC_TYPE, sampleRate, numChannels, frameDuration, BUFFER_SAFETY_FACTOR)
 				encodedAudio := make([]encdec.EncodedFrame, len(audio))
-				ed, err := encdec.NewOpusEncoderDecoder(encdecTypes[0], sampleRate, numChannels)
-				if err != nil {
-					slog.Error("error while creating OPUS encoder/decoder")
-					return
-				}
-				for frameIndex, frame := range audio {
-					encodedFrame, err := ed.Encode(frame)
+				encodedFrameIndex := 0
+				for rawFrameIndex, frame := range audio {
+					encodedFrames, err := ed.Encode(frame)
 					if err != nil {
-						b.Log("error while encoding frame", "frameIndex", frameIndex, "frameLength", len(frame))
+						b.Logf("error while encoding frame, frameIndex %v frameLength %v", rawFrameIndex, len(frame))
 						continue
 					}
-					encodedAudio[frameIndex] = encodedFrame
+					for _, encodedFrame := range encodedFrames {
+						encodedAudio[encodedFrameIndex] = encodedFrame
+						encodedFrameIndex += 1
+					}
 				}
 
 				// Decode the track with benchmarks
@@ -169,7 +166,7 @@ func BenchmarkEncodeRandom(b *testing.B) {
 					b.Attr("sampleRate", fmt.Sprint(sampleRate))
 					b.Attr("numChannels", fmt.Sprint(numChannels))
 					b.Attr("frameDuration", fmt.Sprint(frameDuration))
-					decodeAudio(b, encodedAudio, sampleRate, numChannels)
+					decodeAudio(b, encodedAudio, sampleRate, numChannels, frameDuration)
 				})
 			}
 		}

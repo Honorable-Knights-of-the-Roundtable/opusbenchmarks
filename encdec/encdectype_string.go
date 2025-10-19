@@ -9,7 +9,7 @@ func _() {
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[EncDecTypeHraban-0]
-	_ = x[EncDecTypeJJ11h-1]
+	_ = x[EncDecTypeJJ11hh-1]
 }
 
 const _EncDecType_name = "EncDecTypeHrabanEncDecTypeJJ11h"
