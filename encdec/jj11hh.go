@@ -3,7 +3,6 @@ package encdec
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/jj11hh/opus"
@@ -203,7 +202,7 @@ func (encdec *JJ11hhOpusEncoderDecoder) Decode(encodedData EncodedFrame) (PCMFra
 	if encdec.decodedFrameBufferTail+2*encdec.encodingFrameSize > len(encdec.decodedFrameBuffer) {
 		encdec.decodedFrameBufferTail = 0
 	}
-	slog.Debug("decoding frame", "encodedFrameLen", len(encodedData), "decodedFrameBufferLen", len(encdec.decodedFrameBuffer), "decodedFrameBufferTail", encdec.decodedFrameBufferTail)
+	// slog.Debug("decoding frame", "encodedFrameLen", len(encodedData), "decodedFrameBufferLen", len(encdec.decodedFrameBuffer), "decodedFrameBufferTail", encdec.decodedFrameBufferTail)
 	numDecodedSamples, err := encdec.decoder.DecodeFloat32(encodedData, encdec.decodedFrameBuffer[encdec.decodedFrameBufferTail:])
 	if err != nil {
 		return nil, err

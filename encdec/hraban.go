@@ -3,7 +3,6 @@ package encdec
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/hraban/opus"
@@ -200,38 +199,14 @@ func (encdec *HrabanOpusEncoderDecoder) Decode(encodedData EncodedFrame) (PCMFra
 	// Thankfully, this does not panic, but instead errors, so instead of crashing, we simply
 	// miss that audio.
 
-	defer func() {
-		if r := recover(); r != nil {
-			numDecodedSamples, err := encdec.decoder.DecodeFloat32(encodedData, encdec.decodedFrameBuffer[encdec.decodedFrameBufferTail:])
-			slog.Debug(
-				"decoding frame recover",
-				"encodedFrameLen", len(encodedData),
-				"decodedFrameBufferLen", len(encdec.decodedFrameBuffer),
-				"decodedFrameBufferTail", encdec.decodedFrameBufferTail,
-				"numDecodedSamples", numDecodedSamples,
-				"shouldRewind", encdec.decodedFrameBufferTail+2*encdec.encodingFrameSize > len(encdec.decodedFrameBuffer),
-				"err", err,
-			)
-			panic(err)
-		}
-	}()
-
 	if encdec.decodedFrameBufferTail+2*encdec.encodingFrameSize > len(encdec.decodedFrameBuffer) {
 		encdec.decodedFrameBufferTail = 0
 	}
+	// slog.Debug("decoding frame", "encodedFrameLen", len(encodedData), "decodedFrameBufferLen", len(encdec.decodedFrameBuffer), "decodedFrameBufferTail", encdec.decodedFrameBufferTail)
 	numDecodedSamples, err := encdec.decoder.DecodeFloat32(encodedData, encdec.decodedFrameBuffer[encdec.decodedFrameBufferTail:])
 	if err != nil {
 		return nil, err
 	}
-	slog.Debug(
-		"decoding frame recover",
-		"encodedFrameLen", len(encodedData),
-		"decodedFrameBufferLen", len(encdec.decodedFrameBuffer),
-		"decodedFrameBufferTail", encdec.decodedFrameBufferTail,
-		"numDecodedSamples", numDecodedSamples,
-		"shouldRewind", encdec.decodedFrameBufferTail+2*encdec.encodingFrameSize > len(encdec.decodedFrameBuffer),
-		"err", err,
-	)
 	decodedFrame := encdec.decodedFrameBuffer[encdec.decodedFrameBufferTail : encdec.decodedFrameBufferTail+numDecodedSamples*encdec.numChannels]
 	encdec.decodedFrameBufferTail += numDecodedSamples * encdec.numChannels
 
